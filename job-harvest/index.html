@@ -84,7 +84,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:26px}
     </div>
 
     <div id="tab-company" style="display:none">
-      <div class="controls"><select id="company"><option value="">选择企业</option></select><span class="count" id="company-count"></span></div>
+      <div class="controls"><input id="company" list="company-list" placeholder="搜索企业（输入关键词）" autocomplete="off"><datalist id="company-list"></datalist><span class="count" id="company-count"></span></div>
       <div class="grid2" style="margin-top:12px">
         <div><p class="card-title">覆盖学校</p><div id="company-schools"></div></div>
         <div><p class="card-title">场次明细</p><div id="company-events" style="max-height:440px;overflow:auto"></div></div>
@@ -93,8 +93,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:26px}
 
     <div id="tab-compare" style="display:none">
       <div class="controls">
-        <select id="cmp-a"><option value="">企业 A</option></select>
-        <select id="cmp-b"><option value="">企业 B</option></select>
+        <input id="cmp-a" list="cmp-list" placeholder="搜索企业 A" autocomplete="off">
+        <input id="cmp-b" list="cmp-list" placeholder="搜索企业 B" autocomplete="off"><datalist id="cmp-list"></datalist>
         <button id="cmp-go">对比</button>
         <span class="count" id="cmp-count"></span>
       </div>
@@ -140,10 +140,9 @@ function init(){
   const schools=uniq(DATA.map(x=>x.school));
   $("#school").innerHTML+=schools.map(s=>`<option>${esc(s)}</option>`).join("");
   $("#school2").innerHTML+=schools.map(s=>`<option>${esc(s)}</option>`).join("");
-  $("#company").innerHTML+=uniq(DATA.map(x=>x.company)).map(s=>`<option>${esc(s)}</option>`).join("");
+  $("#company-list").innerHTML+=uniq(DATA.map(x=>x.company)).map(s=>`<option value="${esc(s)}">`).join("");
   const comps=uniq(DATA.map(x=>x.company));
-  $("#cmp-a").innerHTML+=comps.map(s=>`<option>${esc(s)}</option>`).join("");
-  $("#cmp-b").innerHTML+=comps.map(s=>`<option>${esc(s)}</option>`).join("");
+  $("#cmp-list").innerHTML+=comps.map(s=>`<option value="${esc(s)}">`).join("");
   render();renderCatalog();
 }
 function filtered(){
@@ -167,15 +166,25 @@ function render(){
 }
 function showCompany(name){switchTab("company");$("#company").value=name;renderCompany();}
 function switchTab(t){document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));["list","company","school","catalog","compare"].forEach(k=>$("#tab-"+k).style.display=k===t?"":"none");}
+function resolveCompany(el){
+  const v=el.value.trim(); if(!v) return "";
+  const cs=uniq(DATA.map(x=>x.company));
+  if(cs.includes(v)) return v;
+  const hit=cs.find(c=>c.includes(v));
+  if(hit){el.value=hit;return hit;}
+  return "";
+}
 function renderCompany(){
-  const name=$("#company").value, rows=DATA.filter(x=>x.company===name).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  const name=resolveCompany($("#company"));
+  if(!name){$("#company-count").textContent="未找到企业";$("#company-schools").innerHTML='<div class="empty">换个关键词试试</div>';$("#company-events").innerHTML="";return;}
+  const rows=DATA.filter(x=>x.company===name).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
   const schools=uniq(rows.map(x=>x.school));
   $("#company-count").textContent=`${rows.length} 场 / ${schools.length} 校`;
   $("#company-schools").innerHTML=schools.length?schools.map(s=>`<div class="bar-row"><span class="bar-label">${esc(s)}</span><span>${rows.filter(x=>x.school===s).length} 场</span></div>`).join(""):'<div class="empty">请选择企业</div>';
   $("#company-events").innerHTML=rows.map(x=>`<div style="padding:8px 0;border-bottom:1px solid #eee"><b>${esc(x.date)}</b> ${tag(x.type)} · ${esc(x.school)}<br><span class="count">${esc(x.title)}</span><br><span class="count">${esc(x.location)}</span></div>`).join("");
 }
 function renderCompare(){
-  const a=$("#cmp-a").value,b=$("#cmp-b").value;
+  const a=resolveCompany($("#cmp-a")),b=resolveCompany($("#cmp-b"));
   if(!a||!b){$("#cmp-count").textContent="请选择两家企业";return;}
   const A=DATA.filter(x=>x.company===a),B=DATA.filter(x=>x.company===b);
   const sa=uniq(A.map(x=>x.school)),sb=uniq(B.map(x=>x.school));
